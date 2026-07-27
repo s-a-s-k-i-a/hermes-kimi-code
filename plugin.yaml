@@ -1,0 +1,7 @@
+name: kimi-code-delegate
+kind: standalone
+version: 0.1.0
+description: Delegate-only, fail-closed Kimi Code ACP integration for Hermes Agent
+author: Saskia Teichmann (s-a-s-k-i-a)
+provides_tools:
+  - kimi_code_delegate
