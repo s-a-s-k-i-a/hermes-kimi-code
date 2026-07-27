@@ -39,6 +39,16 @@ real prompt is returned as `authentication_required` with the recovery instructi
 `kimi login` interactively.
 
 HTTP 403 is intentionally not mapped to `quota_exhausted` without provider-specific evidence.
+Kimi Code 0.29.2 currently emits an explicit usage-limit 403 in direct prompt mode but reduces
+the same condition to a textless `end_turn` over ACP. The plugin does not launch a second paid
+prompt or inspect Kimi's private logs to guess the missing ACP cause.
+
+## Capability negotiation
+
+Model names are explicit operator choices. Thinking defaults to `auto`: after `session/new`, the
+client validates and uses ACP's advertised `currentValue`. Explicit option ids are applied only
+when that exact value is offered by the current Kimi session. This avoids freezing a
+version-specific enumeration while still permitting no fallback or silent substitution.
 
 ## Failure contract
 
@@ -55,6 +65,10 @@ The tool returns JSON with either `ok: true` and a textual response, or `ok: fal
 
 Diagnostics are bounded and redacted. Unknown server requests receive JSON-RPC method errors;
 notifications are ignored without illegal responses.
+
+Every tool result states the invariant boundary: delegate-only, Hermes model unchanged, and ACP
+approval requests not forwarded. A textless turn remains `empty_response` with unknown provider
+status and interactive login/quota recovery guidance.
 
 ## Future gate
 

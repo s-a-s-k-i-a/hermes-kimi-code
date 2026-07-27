@@ -29,11 +29,20 @@ def test_probe_checks_identity_and_existing_login(fake_kimi_factory, plugin_conf
 def test_delegation_is_end_to_end_and_denies_side_effects(fake_kimi_factory, plugin_config_factory):
     config = plugin_config_factory(fake_kimi_factory())
 
-    result = run_delegation(config, "Review this text", model="k3", thinking="medium")
+    result = run_delegation(config, "Review this text", model="k3", thinking="auto")
 
     assert result["response"].startswith("safe answer from ")
     assert result["model"] == "kimi-code/k3"
-    assert result["thinking"] == "medium"
+    assert result["thinking"] == "high"
+    assert not os.path.exists("/tmp/forbidden")
+
+
+def test_permission_without_reject_option_is_cancelled(fake_kimi_factory, plugin_config_factory):
+    config = plugin_config_factory(fake_kimi_factory("permission-no-reject"))
+
+    result = run_delegation(config, "Review this text", model="k3", thinking="auto")
+
+    assert result["response"].startswith("safe answer from ")
     assert not os.path.exists("/tmp/forbidden")
 
 
@@ -67,7 +76,7 @@ def test_unexpected_response_id_fails_protocol(fake_kimi_factory, plugin_config_
     config = plugin_config_factory(fake_kimi_factory("wrong-id"))
 
     with pytest.raises(KimiACPError, match="unexpected request id") as captured:
-        run_delegation(config, "hello", model="k3", thinking="medium")
+        run_delegation(config, "hello", model="k3", thinking="auto")
 
     assert captured.value.error_type == "protocol"
 
@@ -77,7 +86,7 @@ def test_timeout_cancels_and_kills_process(fake_kimi_factory, plugin_config_fact
     started = time.monotonic()
 
     with pytest.raises(KimiACPError) as captured:
-        run_delegation(config, "hello", model="k3", thinking="medium")
+        run_delegation(config, "hello", model="k3", thinking="auto")
 
     assert captured.value.error_type == "timeout"
     assert time.monotonic() - started < 5
@@ -128,7 +137,7 @@ def test_empty_success_is_not_accepted(fake_kimi_factory, plugin_config_factory)
     config = plugin_config_factory(fake_kimi_factory("empty"))
 
     with pytest.raises(KimiACPError) as captured:
-        run_delegation(config, "hello", model="k3", thinking="medium")
+        run_delegation(config, "hello", model="k3", thinking="auto")
 
     assert captured.value.error_type == "empty_response"
 
@@ -171,6 +180,26 @@ def test_empty_prompt_fails_before_inference(fake_kimi_factory, plugin_config_fa
     config = plugin_config_factory(fake_kimi_factory())
 
     with pytest.raises(KimiACPError) as captured:
-        run_delegation(config, prompt, model="k3", thinking="medium")
+        run_delegation(config, prompt, model="k3", thinking="auto")
 
     assert captured.value.error_type == "input"
+
+
+def test_auto_thinking_requires_server_current_value(fake_kimi_factory, plugin_config_factory):
+    config = plugin_config_factory(fake_kimi_factory("thinking-no-current"))
+
+    with pytest.raises(KimiACPError) as captured:
+        run_delegation(config, "hello", model="k3", thinking="auto")
+
+    assert captured.value.error_type == "capability"
+    assert "current thinking value" in captured.value.message
+
+
+def test_explicit_thinking_must_be_offered(fake_kimi_factory, plugin_config_factory):
+    config = plugin_config_factory(fake_kimi_factory("thinking-low-only"))
+
+    with pytest.raises(KimiACPError) as captured:
+        run_delegation(config, "hello", model="k3", thinking="high")
+
+    assert captured.value.error_type == "capability"
+    assert "does not offer thinking 'high'" in captured.value.message

@@ -6,6 +6,7 @@ import json
 from types import SimpleNamespace
 
 from hermes_kimi_code import handle_kimi_code_delegate, register
+from hermes_kimi_code.errors import KimiACPError
 
 
 class RecordingContext:
@@ -44,15 +45,15 @@ def test_pip_entrypoint_loads_a_module_with_register():
     assert loaded.register is register
 
 
-def test_handler_returns_structured_success(monkeypatch, tmp_path):
-    config = SimpleNamespace(model="k3", thinking="medium")
+def test_handler_returns_structured_success(monkeypatch):
+    config = SimpleNamespace(model="k3", thinking="auto")
     monkeypatch.setattr("hermes_kimi_code.load_plugin_config", lambda: config)
     monkeypatch.setattr(
         "hermes_kimi_code.run_delegation",
         lambda *_args, **_kwargs: {
             "response": "answer",
             "model": "kimi-code/k3",
-            "thinking": "medium",
+            "thinking": "high",
         },
     )
 
@@ -62,7 +63,10 @@ def test_handler_returns_structured_success(monkeypatch, tmp_path):
         "ok": True,
         "response": "answer",
         "model": "kimi-code/k3",
-        "thinking": "medium",
+        "thinking": "high",
+        "delegate_only": True,
+        "hermes_model_changed": False,
+        "approval_requests_forwarded": False,
     }
 
 
@@ -72,3 +76,34 @@ def test_handler_returns_structured_input_error(monkeypatch):
 
     assert payload["ok"] is False
     assert payload["error_type"] in {"input", "cli_not_found"}
+    assert payload["hermes_model_changed"] is False
+    assert payload["approval_requests_forwarded"] is False
+
+
+def test_empty_provider_turn_is_actionable_without_claiming_quota(monkeypatch):
+    config = SimpleNamespace(model="k3", thinking="auto")
+    agent = SimpleNamespace(model="current-primary", provider="current-provider")
+    monkeypatch.setattr("hermes_kimi_code.load_plugin_config", lambda: config)
+
+    def fail_without_provider_detail(*_args, **_kwargs):
+        raise KimiACPError(
+            "empty_response",
+            "Kimi ACP returned no text. The provider status is unknown.",
+            "Check Kimi login and account quota in an interactive terminal, then retry.",
+        )
+
+    monkeypatch.setattr("hermes_kimi_code.run_delegation", fail_without_provider_detail)
+
+    result = asyncio.run(handle_kimi_code_delegate({"prompt": "hello"}, agent=agent))
+    payload = json.loads(result)
+
+    assert payload == {
+        "ok": False,
+        "error_type": "empty_response",
+        "error": "Kimi ACP returned no text. The provider status is unknown.",
+        "recovery": "Check Kimi login and account quota in an interactive terminal, then retry.",
+        "delegate_only": True,
+        "hermes_model_changed": False,
+        "approval_requests_forwarded": False,
+    }
+    assert (agent.model, agent.provider) == ("current-primary", "current-provider")

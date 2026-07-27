@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,8 +19,6 @@ SUPPORTED_MODELS = {
     "k3-256k": "kimi-code/k3-256k",
     "kimi-code/k3-256k": "kimi-code/k3-256k",
 }
-SUPPORTED_THINKING = {"off", "low", "medium", "high", "max"}
-
 _INHERITED_ENV = {
     "PATH",
     "TMPDIR",
@@ -63,7 +62,7 @@ class PluginConfig:
     timeout_seconds: float = 300.0
     startup_timeout_seconds: float = 10.0
     model: str = "k3"
-    thinking: str = "medium"
+    thinking: str = "auto"
 
 
 def _plugin_entry(config: dict[str, Any] | None) -> dict[str, Any]:
@@ -165,11 +164,14 @@ def load_plugin_config(config: dict[str, Any] | None = None) -> PluginConfig:
             "configuration",
             "Configured Kimi model is not supported; use k3 or k3-256k.",
         )
-    thinking = str(entry.get("thinking") or "medium").strip().lower()
-    if thinking not in SUPPORTED_THINKING:
+    raw_thinking = entry.get("thinking", "auto")
+    if not isinstance(raw_thinking, str):
+        raise KimiACPError("configuration", "Configured Kimi thinking must be a string.")
+    thinking = raw_thinking.strip().lower()
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", thinking):
         raise KimiACPError(
             "configuration",
-            "Configured Kimi thinking must be off, low, medium, high, or max.",
+            "Configured Kimi thinking must be auto or a valid ACP option id.",
         )
 
     return PluginConfig(

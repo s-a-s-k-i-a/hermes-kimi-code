@@ -34,13 +34,19 @@ def test_operator_config_resolves_command_and_cwd(fake_kimi_factory, tmp_path):
     assert config.thinking == "high"
 
 
+def test_thinking_defaults_to_server_negotiation(fake_kimi_factory):
+    config = load_plugin_config(_config(fake_kimi_factory()))
+
+    assert config.thinking == "auto"
+
+
 @pytest.mark.parametrize(
     ("key", "value"),
     [
         ("timeout_seconds", 0),
         ("startup_timeout_seconds", 100),
         ("model", "unknown"),
-        ("thinking", "ultra"),
+        ("thinking", "bad value"),
         ("working_directory", 123),
     ],
 )
@@ -49,3 +55,9 @@ def test_invalid_operator_config_fails_closed(fake_kimi_factory, key, value):
         load_plugin_config(_config(fake_kimi_factory(), **{key: value}))
 
     assert captured.value.error_type == "configuration"
+
+
+def test_future_thinking_option_is_validated_by_acp_not_static_config(fake_kimi_factory):
+    config = load_plugin_config(_config(fake_kimi_factory(), thinking="future-level"))
+
+    assert config.thinking == "future-level"

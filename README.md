@@ -12,8 +12,10 @@ is useful.
 ## Status
 
 This is an unreleased alpha. Automated protocol and installation tests are required before
-the first release. A real Kimi answer smoke additionally requires a valid interactive
-`kimi login`; an HTTP 403 alone is not classified as quota exhaustion.
+the first release. The negative live smoke confirms that an exhausted account returns a precise
+HTTP 403 in the direct Kimi CLI but only a textless `end_turn` over ACP. The plugin therefore
+reports an unknown provider status and never infers quota from ACP alone. A successful live
+answer remains gated on refreshed quota.
 
 ## Security boundary
 
@@ -72,12 +74,15 @@ plugins:
       timeout_seconds: 300
       startup_timeout_seconds: 10
       model: k3
-      thinking: medium
+      # Optional. Auto negotiates Kimi ACP's current session value.
+      thinking: auto
 ```
 
 The command is executed directly as `[command, "acp"]`; no shell and no configurable argument
-string are involved. Supported models are `k3` and `k3-256k`. Supported thinking values are
-`off`, `low`, `medium`, `high`, and `max`.
+string are involved. Supported models are `k3` and `k3-256k`. Thinking defaults to `auto`, which
+uses the current value advertised by the ACP session. Explicit values are `low`, `high`, and
+`max` in Kimi Code 0.29.2. Future option ids are accepted by configuration but applied only when
+the installed ACP session advertises that exact value; unsupported values fail closed.
 
 ## Use
 
@@ -103,6 +108,11 @@ ACP `login` handshake. Kimi Code 0.29.2 may accept that handshake before a real 
 when the interactive CLI later requires `kimi login`, so Doctor reports OAuth as **unverified**.
 Only a successful delegated prompt proves the live login. Doctor itself performs no inference.
 
+When Kimi returns no text and no ACP error detail, the tool reports `empty_response`, states that
+the provider status is unknown, and asks the user to check interactive login and account quota.
+The structured result also confirms that Hermes model routing was not changed and no ACP
+approval request was forwarded to the user.
+
 ## Uninstall
 
 ```bash
@@ -119,6 +129,8 @@ remove the corresponding `plugins.entries.kimi-code-delegate` configuration bloc
 - Implementation: [#44](https://github.com/s-a-s-k-i-a/hermes-agent/issues/44)
 - Verification: [#45](https://github.com/s-a-s-k-i-a/hermes-agent/issues/45)
 - Release: [#46](https://github.com/s-a-s-k-i-a/hermes-agent/issues/46)
+- Thinking negotiation: [#48](https://github.com/s-a-s-k-i-a/hermes-agent/issues/48)
+- Quota-state UX: [#49](https://github.com/s-a-s-k-i-a/hermes-agent/issues/49)
 
 Generic ACP Core work already exists upstream in
 [NousResearch/hermes-agent#68222](https://github.com/NousResearch/hermes-agent/pull/68222).

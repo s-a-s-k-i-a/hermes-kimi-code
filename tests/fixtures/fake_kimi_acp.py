@@ -32,6 +32,7 @@ for line in sys.stdin:
             "configOptions": [
                 {
                     "id": "model",
+                    "currentValue": "kimi-code/k3",
                     "options": [
                         {"value": "kimi-code/k3"},
                         {"value": "kimi-code/k3-256k"},
@@ -39,9 +40,8 @@ for line in sys.stdin:
                 },
                 {
                     "id": "thinking",
-                    "options": [
-                        {"value": value} for value in ("off", "low", "medium", "high", "max")
-                    ],
+                    "currentValue": "high",
+                    "options": [{"value": value} for value in ("low", "high", "max")],
                 },
             ],
         }
