@@ -39,8 +39,13 @@ KIMI_CODE_DELEGATE_SCHEMA = {
             },
             "thinking": {
                 "type": "string",
-                "enum": ["off", "low", "medium", "high", "max"],
-                "description": "Optional reasoning effort; defaults to plugin config.",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$",
+                "description": (
+                    "Optional reasoning effort. Auto uses the ACP session current value; "
+                    "otherwise the exact option id must be offered by Kimi."
+                ),
             },
         },
     },
@@ -54,6 +59,9 @@ def _error_payload(exc: KimiACPError) -> str:
             "error_type": exc.error_type,
             "error": exc.message,
             "recovery": exc.recovery,
+            "delegate_only": True,
+            "hermes_model_changed": False,
+            "approval_requests_forwarded": False,
         },
         ensure_ascii=False,
     )
@@ -74,7 +82,16 @@ def _handle_delegate_sync(args: dict[str, Any]) -> str:
             model=model,
             thinking=thinking,
         )
-        return json.dumps({"ok": True, **result}, ensure_ascii=False)
+        return json.dumps(
+            {
+                "ok": True,
+                **result,
+                "delegate_only": True,
+                "hermes_model_changed": False,
+                "approval_requests_forwarded": False,
+            },
+            ensure_ascii=False,
+        )
     except KimiACPError as exc:
         return _error_payload(exc)
 

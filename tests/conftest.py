@@ -81,6 +81,7 @@ def fake_kimi_factory(tmp_path):
                         "configOptions": [
                             {{
                                 "id": "model",
+                                "currentValue": "kimi-code/k3",
                                 "options": [
                                     {{"value": "kimi-code/k3"}},
                                     {{"value": "kimi-code/k3-256k"}},
@@ -88,12 +89,22 @@ def fake_kimi_factory(tmp_path):
                             }},
                             {{
                                 "id": "thinking",
+                                **(
+                                    {{}}
+                                    if MODE == "thinking-no-current"
+                                    else {{
+                                        "currentValue": (
+                                            "low" if MODE == "thinking-low-only" else "high"
+                                        )
+                                    }}
+                                ),
                                 "options": [
-                                    {{"value": "off"}},
-                                    {{"value": "low"}},
-                                    {{"value": "medium"}},
-                                    {{"value": "high"}},
-                                    {{"value": "max"}},
+                                    {{"value": value}}
+                                    for value in (
+                                        ("low",)
+                                        if MODE == "thinking-low-only"
+                                        else ("low", "high", "max")
+                                    )
                                 ],
                             }},
                         ],
@@ -115,16 +126,29 @@ def fake_kimi_factory(tmp_path):
                         "method": "session/request_permission",
                         "params": {{
                             "sessionId": session_id,
-                            "options": [{{
-                                "optionId": "reject",
-                                "kind": "reject_once",
-                                "name": "Reject",
-                            }}],
+                            "options": (
+                                [{{
+                                    "optionId": "allow",
+                                    "kind": "allow_once",
+                                    "name": "Allow",
+                                }}]
+                                if MODE == "permission-no-reject"
+                                else [{{
+                                    "optionId": "reject",
+                                    "kind": "reject_once",
+                                    "name": "Reject",
+                                }}]
+                            ),
                         }},
                     }})
                     permission = receive()
                     outcome = permission.get("result", {{}}).get("outcome", {{}})
-                    if outcome != {{"outcome": "selected", "optionId": "reject"}}:
+                    expected_outcome = (
+                        {{"outcome": "cancelled"}}
+                        if MODE == "permission-no-reject"
+                        else {{"outcome": "selected", "optionId": "reject"}}
+                    )
+                    if outcome != expected_outcome:
                         raise SystemExit(8)
                     send({{
                         "jsonrpc": "2.0",
@@ -190,7 +214,7 @@ def plugin_config_factory(tmp_path):
             "timeout_seconds": 2.0,
             "startup_timeout_seconds": 2.0,
             "model": "k3",
-            "thinking": "medium",
+            "thinking": "auto",
         }
         values.update(overrides)
         return PluginConfig(**values)

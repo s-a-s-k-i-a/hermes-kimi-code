@@ -380,8 +380,8 @@ class KimiACPClient:
             )
         if model not in SUPPORTED_MODELS:
             raise KimiACPError("input", "model must be k3 or k3-256k.")
-        if thinking not in {"off", "low", "medium", "high", "max"}:
-            raise KimiACPError("input", "thinking must be off, low, medium, high, or max.")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", thinking):
+            raise KimiACPError("input", "thinking must be auto or a valid ACP option id.")
 
         self.start()
         self._initialize_and_authenticate()
@@ -415,11 +415,21 @@ class KimiACPClient:
             for item in (thinking_option or {}).get("options") or []
             if isinstance(item, dict)
         }
-        if thinking not in offered_thinking:
+        current_thinking = str((thinking_option or {}).get("currentValue") or "").strip()
+        if thinking == "auto":
+            if not current_thinking or current_thinking not in offered_thinking:
+                raise KimiACPError(
+                    "capability",
+                    "Kimi ACP did not provide a usable current thinking value.",
+                )
+            selected_thinking = current_thinking
+        else:
+            selected_thinking = thinking
+        if selected_thinking not in offered_thinking:
             raise KimiACPError("capability", f"Kimi ACP does not offer thinking '{thinking}'.")
         self._request(
             "session/set_config_option",
-            {"sessionId": session_id, "configId": "thinking", "value": thinking},
+            {"sessionId": session_id, "configId": "thinking", "value": selected_thinking},
             timeout_seconds=self.config.startup_timeout_seconds,
         )
 
@@ -448,10 +458,12 @@ class KimiACPClient:
             )
             raise KimiACPError(
                 "empty_response",
-                f"Kimi ACP ended with '{stop_reason}' but returned no answer.",
-                "Run `hermes kimi-code doctor`; then retry after checking Kimi account status.",
+                f"Kimi ACP ended with '{stop_reason}' but returned no text. "
+                "The provider status is unknown because ACP supplied no error detail.",
+                "Check Kimi login and account quota in an interactive terminal, then retry. "
+                "Hermes remains on its current model.",
             )
-        return {"response": response, "model": selected_model, "thinking": thinking}
+        return {"response": response, "model": selected_model, "thinking": selected_thinking}
 
 
 def run_probe(config: PluginConfig) -> dict[str, Any]:
