@@ -1,4 +1,5 @@
 name: kimi-code-delegate
+manifest_version: 1
 kind: standalone
 version: 0.1.0
 description: Delegate-only, fail-closed Kimi Code ACP integration for Hermes Agent

@@ -6,12 +6,11 @@ import asyncio
 import json
 from typing import Any
 
+from ._version import __version__
 from .acp import run_delegation
 from .cli import handle_cli, setup_cli
 from .config import SUPPORTED_MODELS, command_is_available, load_plugin_config
 from .errors import KimiACPError
-
-__version__ = "0.1.0"
 
 KIMI_CODE_DELEGATE_SCHEMA = {
     "name": "kimi_code_delegate",
@@ -71,14 +70,26 @@ def _handle_delegate_sync(args: dict[str, Any]) -> str:
     try:
         if not isinstance(args, dict):
             raise KimiACPError("input", "Tool arguments must be an object.")
-        config = load_plugin_config()
-        model = str(args.get("model") or config.model).strip()
-        thinking = str(args.get("thinking") or config.thinking).strip().lower()
-        if model not in SUPPORTED_MODELS:
+        unknown = sorted(set(args) - {"prompt", "model", "thinking"})
+        if unknown:
+            raise KimiACPError("input", f"Unknown tool argument: {unknown[0]}.")
+        prompt = args.get("prompt")
+        if not isinstance(prompt, str):
+            raise KimiACPError("input", "prompt must be a string.")
+        raw_model = args.get("model")
+        if raw_model is not None and not isinstance(raw_model, str):
+            raise KimiACPError("input", "model must be a string.")
+        if raw_model is not None and raw_model.strip() not in SUPPORTED_MODELS:
             raise KimiACPError("input", "model must be k3 or k3-256k.")
+        raw_thinking = args.get("thinking")
+        if raw_thinking is not None and not isinstance(raw_thinking, str):
+            raise KimiACPError("input", "thinking must be a string.")
+        config = load_plugin_config()
+        model = (raw_model if raw_model is not None else config.model).strip()
+        thinking = (raw_thinking if raw_thinking is not None else config.thinking).strip().lower()
         result = run_delegation(
             config,
-            str(args.get("prompt") or ""),
+            prompt,
             model=model,
             thinking=thinking,
         )
@@ -94,6 +105,14 @@ def _handle_delegate_sync(args: dict[str, Any]) -> str:
         )
     except KimiACPError as exc:
         return _error_payload(exc)
+    except Exception:
+        return _error_payload(
+            KimiACPError(
+                "internal",
+                "Kimi delegation failed inside the plugin.",
+                "Run `hermes kimi-code doctor`; if it persists, report the plugin version.",
+            )
+        )
 
 
 async def handle_kimi_code_delegate(args: dict[str, Any], **_kwargs: Any) -> str:
@@ -126,6 +145,7 @@ def register(ctx: Any) -> None:
 
 __all__ = [
     "KIMI_CODE_DELEGATE_SCHEMA",
+    "__version__",
     "handle_kimi_code_delegate",
     "register",
 ]

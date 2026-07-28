@@ -101,12 +101,29 @@ def test_wrong_acp_identity_fails_capability_gate(fake_kimi_factory, plugin_conf
     assert captured.value.error_type == "capability"
 
 
-@pytest.mark.parametrize("mode", ["malformed-json", "oversized-line"])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "malformed-json",
+        "oversized-line",
+        "wrong-jsonrpc",
+        "invalid-response-shape",
+    ],
+)
 def test_invalid_wire_frames_fail_protocol(fake_kimi_factory, plugin_config_factory, mode):
     config = plugin_config_factory(fake_kimi_factory(mode))
 
     with pytest.raises(KimiACPError) as captured:
         run_probe(config)
+
+    assert captured.value.error_type == "protocol"
+
+
+def test_invalid_session_update_fails_protocol(fake_kimi_factory, plugin_config_factory):
+    config = plugin_config_factory(fake_kimi_factory("invalid-session-update"))
+
+    with pytest.raises(KimiACPError) as captured:
+        run_delegation(config, "hello", model="k3", thinking="auto")
 
     assert captured.value.error_type == "protocol"
 
@@ -163,7 +180,9 @@ def test_child_environment_is_allowlisted(monkeypatch):
 def test_diagnostics_are_redacted_and_bounded():
     diagnostic = (
         "Bearer top-secret access_token=another-secret "
-        "https://user:proxy-secret@example.test " + "x" * 10_000
+        "https://user:proxy-secret@example.test "
+        "ghp_1234567890abcdefghijklmnop "
+        + "x" * 10_000
     )
 
     cleaned = sanitize_diagnostic(diagnostic)
@@ -171,6 +190,7 @@ def test_diagnostics_are_redacted_and_bounded():
     assert "top-secret" not in cleaned
     assert "another-secret" not in cleaned
     assert "proxy-secret" not in cleaned
+    assert "1234567890abcdefghijklmnop" not in cleaned
     assert "[REDACTED]" in cleaned
     assert len(cleaned) < 4_200
 

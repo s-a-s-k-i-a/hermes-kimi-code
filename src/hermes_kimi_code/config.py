@@ -66,14 +66,28 @@ class PluginConfig:
 
 
 def _plugin_entry(config: dict[str, Any] | None) -> dict[str, Any]:
-    plugins = (config or {}).get("plugins")
+    if config is None:
+        return {}
+    if not isinstance(config, dict):
+        raise KimiACPError("configuration", "Hermes configuration must be an object.")
+    if "plugins" not in config:
+        return {}
+    plugins = config.get("plugins")
     if not isinstance(plugins, dict):
+        raise KimiACPError("configuration", "Hermes plugins configuration must be an object.")
+    if "entries" not in plugins:
         return {}
     entries = plugins.get("entries")
     if not isinstance(entries, dict):
+        raise KimiACPError("configuration", "Hermes plugin entries must be an object.")
+    if PLUGIN_ID not in entries:
         return {}
     entry = entries.get(PLUGIN_ID)
-    return entry if isinstance(entry, dict) else {}
+    if not isinstance(entry, dict):
+        raise KimiACPError(
+            "configuration", f"plugins.entries.{PLUGIN_ID} must be an object."
+        )
+    return entry
 
 
 def _load_hermes_config() -> dict[str, Any]:
@@ -81,9 +95,13 @@ def _load_hermes_config() -> dict[str, Any]:
         from hermes_cli.config import load_config
 
         loaded = load_config()
-        return loaded if isinstance(loaded, dict) else {}
-    except Exception:
-        return {}
+    except Exception as exc:
+        raise KimiACPError(
+            "configuration", "Hermes configuration could not be loaded."
+        ) from exc
+    if not isinstance(loaded, dict):
+        raise KimiACPError("configuration", "Hermes configuration must be an object.")
+    return loaded
 
 
 def _bounded_float(value: Any, *, name: str, default: float, low: float, high: float) -> float:

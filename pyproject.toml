@@ -19,10 +19,11 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 
 [project.urls]
-Issues = "https://github.com/s-a-s-k-i-a/hermes-agent/issues/47"
+Issues = "https://github.com/s-a-s-k-i-a/hermes-kimi-code/issues"
 Source = "https://github.com/s-a-s-k-i-a/hermes-kimi-code"
 
 [project.entry-points."hermes_agent.plugins"]

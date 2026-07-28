@@ -47,6 +47,17 @@ def fake_kimi_factory(tmp_path):
                         sys.stdout.write("x" * 1_048_577 + "\\n")
                         sys.stdout.flush()
                         continue
+                    if MODE == "wrong-jsonrpc":
+                        send({{"jsonrpc": "1.0", "id": request_id, "result": {{}}}})
+                        continue
+                    if MODE == "invalid-response-shape":
+                        send({{
+                            "jsonrpc": "2.0",
+                            "id": request_id,
+                            "result": {{}},
+                            "error": {{"code": -32000, "message": "invalid"}},
+                        }})
+                        continue
                     if MODE == "early-exit":
                         sys.stderr.write("login required; bearer secret-value\\n")
                         sys.stderr.flush()
@@ -120,6 +131,13 @@ def fake_kimi_factory(tmp_path):
                         send({{"jsonrpc": "2.0", "id": 9999, "result": {{}}}})
                         continue
                     session_id = request["params"]["sessionId"]
+                    if MODE == "invalid-session-update":
+                        send({{
+                            "jsonrpc": "2.0",
+                            "method": "session/update",
+                            "params": [],
+                        }})
+                        continue
                     send({{
                         "jsonrpc": "2.0",
                         "id": "permission-1",
