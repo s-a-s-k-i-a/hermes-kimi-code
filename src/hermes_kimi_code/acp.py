@@ -14,6 +14,7 @@ from collections import deque
 from contextlib import suppress
 from typing import Any
 
+from ._version import __version__
 from .config import SUPPORTED_MODELS, PluginConfig, build_child_environment
 from .errors import AUTH_RECOVERY, KimiACPError
 
@@ -25,6 +26,7 @@ _SECRET_PATTERNS = (
     re.compile(r"(?i)((?:access|refresh|id)[_-]?token\s*[:=]\s*)[^\s,;]+"),
     re.compile(r"(?i)((?:api[_-]?key|secret|password)\s*[:=]\s*)[^\s,;]+"),
     re.compile(r"([a-z][a-z0-9+.-]*://[^\s:/@]+:)[^\s/@]+(@)", re.I),
+    re.compile(r"\b(gh[pousr]_|github_pat_|sk-)[A-Za-z0-9_-]{12,}\b"),
 )
 
 
@@ -169,6 +171,11 @@ class KimiACPClient:
             if not isinstance(payload, dict):
                 self._inbox.put({"_protocol_error": "Kimi returned a non-object ACP frame."})
                 continue
+            if payload.get("jsonrpc") != "2.0":
+                self._inbox.put(
+                    {"_protocol_error": "Kimi returned an invalid JSON-RPC version."}
+                )
+                continue
             self._inbox.put(payload)
 
     def _read_stderr(self, process: subprocess.Popen[str]) -> None:
@@ -199,19 +206,27 @@ class KimiACPClient:
         *,
         text_parts: list[str] | None,
     ) -> bool:
-        method = message.get("method")
-        if not isinstance(method, str):
+        if "method" not in message:
             return False
+        method = message.get("method")
+        if not isinstance(method, str) or not method:
+            raise KimiACPError("protocol", "Kimi returned an invalid ACP method.")
         if method == "session/update":
-            params = message.get("params") or {}
-            update = params.get("update") or {}
+            params = message.get("params")
+            if not isinstance(params, dict):
+                raise KimiACPError("protocol", "Kimi returned invalid session update params.")
+            update = params.get("update")
             if not isinstance(update, dict):
-                return True
-            kind = str(update.get("sessionUpdate") or "")
-            content = update.get("content") or {}
-            text = str(content.get("text") or "") if isinstance(content, dict) else ""
-            if kind == "agent_message_chunk" and text and text_parts is not None:
-                text_parts.append(text)
+                raise KimiACPError("protocol", "Kimi returned an invalid session update.")
+            kind = update.get("sessionUpdate")
+            if kind == "agent_message_chunk":
+                content = update.get("content")
+                if not isinstance(content, dict) or not isinstance(content.get("text"), str):
+                    raise KimiACPError(
+                        "protocol", "Kimi returned an invalid agent message chunk."
+                    )
+                if content["text"] and text_parts is not None:
+                    text_parts.append(content["text"])
             return True
 
         # JSON-RPC notifications are never answered.
@@ -263,7 +278,13 @@ class KimiACPClient:
                 raise KimiACPError(
                     "protocol", "Kimi returned a response for an unexpected request id."
                 )
-            if "error" in message:
+            has_error = "error" in message
+            has_result = "result" in message
+            if has_error == has_result:
+                raise KimiACPError(
+                    "protocol", "Kimi returned an invalid JSON-RPC response shape."
+                )
+            if has_error:
                 error = message.get("error")
                 detail = error.get("message") if isinstance(error, dict) else error
                 safe_detail = sanitize_diagnostic(detail) or "unspecified error"
@@ -321,7 +342,7 @@ class KimiACPClient:
                 "clientInfo": {
                     "name": "hermes-kimi-code",
                     "title": "Hermes Kimi Code Delegate",
-                    "version": "0.1.0",
+                    "version": __version__,
                 },
             },
             timeout_seconds=self.config.startup_timeout_seconds,

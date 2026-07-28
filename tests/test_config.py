@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -61,3 +63,37 @@ def test_future_thinking_option_is_validated_by_acp_not_static_config(fake_kimi_
     config = load_plugin_config(_config(fake_kimi_factory(), thinking="future-level"))
 
     assert config.thinking == "future-level"
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        [],
+        {"plugins": []},
+        {"plugins": {"entries": []}},
+        {"plugins": {"entries": {"kimi-code-delegate": "invalid"}}},
+    ],
+)
+def test_malformed_hermes_plugin_structure_fails_closed(config):
+    with pytest.raises(KimiACPError) as captured:
+        load_plugin_config(config)  # type: ignore[arg-type]
+
+    assert captured.value.error_type == "configuration"
+
+
+def test_hermes_config_loader_failure_is_not_silently_replaced(monkeypatch):
+    fake_config = ModuleType("hermes_cli.config")
+
+    def fail():
+        raise RuntimeError("malformed config")
+
+    fake_config.load_config = fail  # type: ignore[attr-defined]
+    fake_package = ModuleType("hermes_cli")
+    monkeypatch.setitem(sys.modules, "hermes_cli", fake_package)
+    monkeypatch.setitem(sys.modules, "hermes_cli.config", fake_config)
+
+    with pytest.raises(KimiACPError) as captured:
+        load_plugin_config()
+
+    assert captured.value.error_type == "configuration"
+    assert "malformed config" not in captured.value.message

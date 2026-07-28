@@ -2,5 +2,6 @@ include CHANGELOG.md
 include SECURITY.md
 include CONTRIBUTING.md
 include plugin.yaml
+include after-install.md
 recursive-include docs *.md
 recursive-include tests *.py
