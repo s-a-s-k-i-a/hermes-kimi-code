@@ -11,11 +11,15 @@ is useful.
 
 ## Status
 
-This is an unreleased alpha. Automated protocol and installation tests are required before
-the first release. The negative live smoke confirms that an exhausted account returns a precise
-HTTP 403 in the direct Kimi CLI but only a textless `end_turn` over ACP. The plugin therefore
-reports an unknown provider status and never infers quota from ACP alone. A successful live
-answer remains gated on refreshed quota.
+Version 0.1.0 is tested with Kimi Code 0.29.2 and Hermes Agent upstream commit
+`1dfe781edd5e96d09511cf27d800a03e63b09789`. Real, built-plugin delegation succeeds with both
+`k3` and `k3-256k`; protocol, installation, disable/remove, timeout, capability-drift, and
+side-effect-denial paths are covered separately.
+
+An earlier exhausted-account smoke remains useful negative evidence: direct Kimi CLI mode
+reported HTTP 403, while ACP returned only a textless `end_turn`. The plugin therefore reports
+unknown provider status when ACP omits the cause and never guesses that an empty turn means
+quota exhaustion.
 
 ## Security boundary
 
@@ -45,16 +49,26 @@ kimi login
 
 ## Installation
 
-Until a release exists, install from a trusted local checkout:
+The preferred public installation path uses Hermes' native Git plugin manager:
 
 ```bash
-python -m pip install /path/to/hermes-kimi-code
+hermes plugins install s-a-s-k-i-a/hermes-kimi-code --enable
+hermes kimi-code doctor
+```
+
+Restart a running gateway after installation so it discovers the plugin. Hermes clones the
+repository into its own plugin directory and can update or remove it through the same CLI.
+
+Alternatively, install the tagged Python package into the same environment as Hermes:
+
+```bash
+python -m pip install "git+https://github.com/s-a-s-k-i-a/hermes-kimi-code.git@v0.1.0"
 hermes plugins enable kimi-code-delegate
 hermes kimi-code doctor
 ```
 
-Pip entry-point discovery uses the plugin id `kimi-code-delegate`. No Hermes Core files are
-patched.
+Pip entry-point and native Git discovery both use the plugin id `kimi-code-delegate`. Neither
+path patches Hermes Core files.
 
 ## Configuration
 
@@ -115,6 +129,15 @@ approval request was forwarded to the user.
 
 ## Uninstall
 
+For a native Git installation:
+
+```bash
+hermes plugins disable kimi-code-delegate
+hermes plugins remove kimi-code-delegate
+```
+
+For a pip installation:
+
 ```bash
 hermes plugins disable kimi-code-delegate
 python -m pip uninstall hermes-kimi-code
@@ -131,6 +154,8 @@ remove the corresponding `plugins.entries.kimi-code-delegate` configuration bloc
 - Release: [#46](https://github.com/s-a-s-k-i-a/hermes-agent/issues/46)
 - Thinking negotiation: [#48](https://github.com/s-a-s-k-i-a/hermes-agent/issues/48)
 - Quota-state UX: [#49](https://github.com/s-a-s-k-i-a/hermes-agent/issues/49)
+- Native distribution path: [#50](https://github.com/s-a-s-k-i-a/hermes-agent/issues/50)
+- Fail-closed boundary hardening: [#51](https://github.com/s-a-s-k-i-a/hermes-agent/issues/51)
 
 Generic ACP Core work already exists upstream in
 [NousResearch/hermes-agent#68222](https://github.com/NousResearch/hermes-agent/pull/68222).

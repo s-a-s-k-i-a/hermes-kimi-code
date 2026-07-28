@@ -1,0 +1,36 @@
+name: Bug report
+description: Report a reproducible problem without credentials or private prompts.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not include OAuth data, tokens, account identifiers, or raw environment dumps.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Plugin, Hermes, Python, and Kimi Code CLI versions.
+      placeholder: hermes-kimi-code 0.1.0; Hermes SHA/version; Python; Kimi Code
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal redacted reproduction
+      description: Exact steps using non-secret placeholder input.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
